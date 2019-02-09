@@ -1,5 +1,17 @@
 import numpy as np
 import cv2
+import time
+import RPi.GPIO as io
+
+io.setmode(io.BCM)
+
+relay1_pin = 23
+relay2_pin = 22
+
+io.setup(relay1_pin,io.OUT)
+io.setup(relay2_pin,io.OUT)
+io.output(relay1_pin,True)
+io.output(relay2_pin,True)
 
 
 def detect_face(img):
@@ -31,15 +43,33 @@ def draw_rectangle(img, rect):
     (x, y, w, h) = rect
     return cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
+def clear_signal():
+    io.output(relay1_pin,True)
+    io.output(relay2_pin,True)
+
+def send_signal(signal):
+    if signal == 'move-left':
+        io.output(relay1_pin,False)
+        io.output(relay2_pin,True)
+    elif signal == 'move-right':
+        io.output(relay1_pin,True)
+        io.output(relay2_pin,False)
+    else:
+        clear_signal()
+        
+        
 
 def process_recenter_face(rect):
     (x, y, w, h) = rect
-    #print(x)
-    if x<300:
+    print(x)
+    clear_signal()
+    if x<200:
         print('move-left')
+        send_signal('move-left')
 
-    if x>600:
+    if x>300:
         print('move-right')
+        send_signal('move-right')
 
 
 
@@ -58,14 +88,17 @@ while rval:
 
     face, rect = detect_face(frame)
 
-    # if rect is not None:
-    #     frame = draw_rectangle(frame, rect)
-    #     process_recenter_face(rect)
+    #print(rect)
+    clear_signal()	
+    if rect is not None:
+    	#frame = draw_rectangle(frame, rect)
+    	process_recenter_face(rect)
 
-    cv2.imshow("preview", frame)
+
+    #cv2.imshow("preview", cv2.resize(frame,(600,400)))
 
 
-    key = cv2.waitKey(100)
+    key = cv2.waitKey(1)
     if key == 27:  # exit on ESC
         print("escape")
         break
