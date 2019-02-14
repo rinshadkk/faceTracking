@@ -4,14 +4,52 @@ import time
 import RPi.GPIO as io
 
 io.setmode(io.BCM)
+io.setwarnings(False)
+coil_A_1_pin = 4 # pink
+coil_A_2_pin = 17 # orange
+coil_B_1_pin = 23 # blue
+coil_B_2_pin = 24 # yellow
+ 
+# adjust if different
+StepCount = 8
+Seq = range(0, StepCount)
+Seq[0] = [0,1,0,0]
+Seq[1] = [0,1,0,1]
+Seq[2] = [0,0,0,1]
+Seq[3] = [1,0,0,1]
+Seq[4] = [1,0,0,0]
+Seq[5] = [1,0,1,0]
+Seq[6] = [0,0,1,0]
+Seq[7] = [0,1,1,0]
 
-relay1_pin = 23
-relay2_pin = 22
-
-io.setup(relay1_pin,io.OUT)
-io.setup(relay2_pin,io.OUT)
-io.output(relay1_pin,True)
-io.output(relay2_pin,True)
+delay = 1
+steps = 5
+ 
+#GPIO.setup(enable_pin, GPIO.OUT)
+io.setup(coil_A_1_pin, io.OUT)
+io.setup(coil_A_2_pin, io.OUT)
+io.setup(coil_B_1_pin, io.OUT)
+io.setup(coil_B_2_pin, io.OUT)
+ 
+#GPIO.output(enable_pin, 1)
+ 
+def setStep(w1, w2, w3, w4):
+    io.output(coil_A_1_pin, w1)
+    io.output(coil_A_2_pin, w2)
+    io.output(coil_B_1_pin, w3)
+    io.output(coil_B_2_pin, w4)
+ 
+def forward(delay, steps):
+    for i in range(steps):
+        for j in range(StepCount):
+            setStep(Seq[j][0], Seq[j][1], Seq[j][2], Seq[j][3])
+            time.sleep(delay)
+ 
+def backwards(delay, steps):
+    for i in range(steps):
+        for j in reversed(range(StepCount)):
+            setStep(Seq[j][0], Seq[j][1], Seq[j][2], Seq[j][3])
+            time.sleep(delay)
 
 
 def detect_face(img):
@@ -21,6 +59,7 @@ def detect_face(img):
     # load OpenCV face detector, I am using LBP which is fast
     # there is also a more accurate but slow Haar classifier
     face_cascade = cv2.CascadeClassifier('opencv-files/lbpcascade_frontalface.xml')
+    #face_cascade = cv2.CascadeClassifier('opencv-files/haarcascade_frontalface_alt.xml')
 
     # let's detect multiscale (some images may be closer to camera than others) images
     # result is a list of faces
@@ -44,16 +83,13 @@ def draw_rectangle(img, rect):
     return cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
 def clear_signal():
-    io.output(relay1_pin,True)
-    io.output(relay2_pin,True)
+    setStep(0,0,0,0)
 
 def send_signal(signal):
-    if signal == 'move-left':
-        io.output(relay1_pin,False)
-        io.output(relay2_pin,True)
-    elif signal == 'move-right':
-        io.output(relay1_pin,True)
-        io.output(relay2_pin,False)
+    if signal == 'move-right':
+        backwards(int(delay) / 1000.0, int(steps))
+    elif signal == 'move-left':
+        forward(int(delay) / 1000.0, int(steps))
     else:
         clear_signal()
         
@@ -63,11 +99,11 @@ def process_recenter_face(rect):
     (x, y, w, h) = rect
     print(x)
     clear_signal()
-    if x<200:
+    if x<100:
         print('move-left')
         send_signal('move-left')
 
-    if x>300:
+    if x+w>250:
         print('move-right')
         send_signal('move-right')
 
@@ -85,17 +121,20 @@ else:
 while rval:
 
     rval, frame = vc.read()
-
-    face, rect = detect_face(frame)
+    face = cv2.resize(frame,(400,200))
+    rect = None
+    
+    face, rect = detect_face(face)
 
     #print(rect)
     clear_signal()	
     if rect is not None:
     	#frame = draw_rectangle(frame, rect)
     	process_recenter_face(rect)
-
-
-    #cv2.imshow("preview", cv2.resize(frame,(600,400)))
+    	#cv2.imshow("preview", draw_rectangle(frame,rect))
+    	cv2.imshow("preview", frame)
+    else:
+        cv2.imshow("preview", frame)
 
 
     key = cv2.waitKey(1)
