@@ -3,6 +3,8 @@ import cv2
 import time
 import RPi.GPIO as io
 
+font = cv2.FONT_HERSHEY_SIMPLEX
+
 io.setmode(io.BCM)
 io.setwarnings(False)
 coil_A_1_pin = 4 # pink
@@ -23,7 +25,7 @@ Seq[6] = [0,0,1,0]
 Seq[7] = [0,1,1,0]
 
 delay = 1
-steps = 5
+steps = 2
  
 #GPIO.setup(enable_pin, GPIO.OUT)
 io.setup(coil_A_1_pin, io.OUT)
@@ -102,10 +104,12 @@ def process_recenter_face(rect):
     if x<100:
         print('move-left')
         send_signal('move-left')
+        cv2.putText(frame, "Moving Camera Left",(10,30),font,1,(255,255,255),2,cv2.CV_AA)
 
     if x+w>250:
         print('move-right')
         send_signal('move-right')
+        cv2.putText(frame, "Moving Camera Right",(10,30),font,1,(255,255,255),2,cv2.CV_AA)
 
 
 
@@ -132,8 +136,10 @@ while rval:
     	#frame = draw_rectangle(frame, rect)
     	process_recenter_face(rect)
     	#cv2.imshow("preview", draw_rectangle(frame,rect))
+    	
     	cv2.imshow("preview", frame)
     else:
+        cv2.putText(frame, "No faces detected",(10,30),font,0.5,(255,255,255),2,cv2.CV_AA)
         cv2.imshow("preview", frame)
 
 
