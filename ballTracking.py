@@ -120,5 +120,5 @@ if not args.get("video", False):
 else:
     vs.release()
 
-# close all windows
+# close all window
 cv2.destroyAllWindows()
