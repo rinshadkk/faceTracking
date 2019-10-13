@@ -17,11 +17,14 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
+lookAroundCounter = 0
+maxLookAroundCounter = 100
+lookAroundSleep = 5 
 
-coil_A_1_pin = 4 # pink
-coil_A_2_pin = 17 # orange
-coil_B_1_pin = 23 # blue
-coil_B_2_pin = 24 # yellow
+coil_A_1_pin = 17 # pink
+coil_A_2_pin = 27 # orange
+coil_B_1_pin = 24 # blue
+coil_B_2_pin = 23 # yellow
     
 def initializeGPIO():
     GPIO.setmode(GPIO.BCM)
@@ -48,11 +51,19 @@ def moveLeft(time):
     #setGPIO(0,0,0,0,1)
     
 def moveForward(time):
-    setGPIO(0,0,1,1,time)
+    setGPIO(0,1,0,1,time)
     #setGPIO(0,0,0,0,1)
     
 def lookAround(time):
-    setGPIO(0,0,1,0,time)
+    setGPIO(0,1,1,0,time)
+
+def processLookAround():
+    lookAroundCounter += 1
+    if lookAroundCounter > maxLookAroundCounter :
+         time.sleep(lookAroundSleep)
+    lookAround(.1)
+    setGPIO(0,0,0,0,.5)
+    
 
 def processMovement(x,y):
     print("x: " + str(x) + " Y: " + str(y))
@@ -76,7 +87,7 @@ initializeGPIO()
 # list of tracked points
 greenLower = (29, 86, 6)
 greenUpper = (64, 255, 255)
-pts = deque(maxlen=args["buffer"])
+#pts = deque(maxlen=args["buffer"])
 
 # if a video path was not supplied, grab the reference
 # to the webcam
@@ -146,9 +157,10 @@ while True:
                        (0, 255, 255), 2)
             cv2.circle(frame, center, 5, (0, 0, 255), -1)
             processMovement(x,y)
-
+    
+    processLookAround()
     # update the points queue
-    pts.appendleft(center)
+    #pts.appendleft(center)
     # loop over the set of tracked points
     #for i in range(1, len(pts)):
     #    # if either of the tracked points are None, ignore
