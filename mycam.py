@@ -1,30 +1,27 @@
 # import the necessary packages
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+import time
+import cv2# import the necessary packages
 from collections import deque
 from imutils.video import VideoStream
 import numpy as np
 import argparse
-import cv2
 import imutils
-import time
 import RPi.GPIO as GPIO
 
 
-# construct the argument parse and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video",
-                help="path to the (optional) video file")
-ap.add_argument("-b", "--buffer", type=int, default=64,
-                help="max buffer size")
-args = vars(ap.parse_args())
 
-lookAroundCounter = 0
-maxLookAroundCounter = 100
-lookAroundSleep = 5 
+# initialize the camera and grab a reference to the raw camera capture
+camera = PiCamera()
+camera.resolution = (640, 480)
+camera.framerate = 32
+rawCapture = PiRGBArray(camera, size=(640, 480))
 
-coil_A_1_pin = 17 # pink
-coil_A_2_pin = 27 # orange
-coil_B_1_pin = 24 # blue
-coil_B_2_pin = 23 # yellow
+coil_A_1_pin = 4 # pink
+coil_A_2_pin = 17 # orange
+coil_B_1_pin = 23 # blue
+coil_B_2_pin = 24 # yellow
     
 def initializeGPIO():
     GPIO.setmode(GPIO.BCM)
@@ -51,20 +48,11 @@ def moveLeft(time):
     #setGPIO(0,0,0,0,1)
     
 def moveForward(time):
-    setGPIO(0,1,0,1,time)
+    setGPIO(0,0,1,1,time)
     #setGPIO(0,0,0,0,1)
     
 def lookAround(time):
-    setGPIO(0,1,1,0,time)
-
-def processLookAround():
-    global lookAroundCounter
-    lookAroundCounter = lookAroundCounter + 1
-    if lookAroundCounter > maxLookAroundCounter :
-         time.sleep(lookAroundSleep)
-    lookAround(.1)
-    setGPIO(0,0,0,0,.5)
-    
+    setGPIO(0,0,1,0,time)
 
 def processMovement(x,y):
     print("x: " + str(x) + " Y: " + str(y))
@@ -90,35 +78,23 @@ greenLower = (29, 86, 6)
 greenUpper = (64, 255, 255)
 #pts = deque(maxlen=args["buffer"])
 
-# if a video path was not supplied, grab the reference
-# to the webcam
-if not args.get("video", False):
-    vs = VideoStream(src=0).start()
+# allow the camera to warmup
+time.sleep(0.1)
 
-# otherwise, grab a reference to the video file
-else:
-    vs = cv2.VideoCapture(args["video"])
-
-# allow the camera or video file to warm up
-time.sleep(2.0)
-
-# keep looping
-while True:
-    # grab the current frame
-    frame = vs.read()
-
-    # handle the frame from VideoCapture or VideoStream
-    frame = frame[1] if args.get("video", False) else frame
-
-    # if we are viewing a video and we did not grab a frame,
-    # then we have reached the end of the video
-    if frame is None:
+# capture frames from the camera
+for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+    # grab the raw NumPy array representing the image, then initialize the timestamp
+    # and occupied/unoccupied text
+    image = frame.array
+    
+    
+    if image is None:
         break
 
     # resize the frame, blur it, and convert it to the HSV
     # color space
-    frame = imutils.resize(frame, width=600)
-    blurred = cv2.GaussianBlur(frame, (11, 11), 0)
+    image = imutils.resize(image, width=600)
+    blurred = cv2.GaussianBlur(image, (11, 11), 0)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
     #cv2.imshow("hsv", hsv)
@@ -154,44 +130,25 @@ while True:
         if radius > 5:
             # draw the circle and centroid on the frame,
             # then update the list of tracked points
-            cv2.circle(frame, (int(x), int(y)), int(radius),
+            cv2.circle(image, (int(x), int(y)), int(radius),
                        (0, 255, 255), 2)
-            cv2.circle(frame, center, 5, (0, 0, 255), -1)
+            cv2.circle(image, center, 5, (0, 0, 255), -1)
             processMovement(x,y)
-    else:
-        processLookAround()
+
     # update the points queue
     #pts.appendleft(center)
-    # loop over the set of tracked points
-    #for i in range(1, len(pts)):
-    #    # if either of the tracked points are None, ignore
-    #    # them
-    #    if pts[i - 1] is None or pts[i] is None:
-    #        continue
-
-        # otherwise, compute the thickness of the line and
-        # draw the connecting lines
-    #   thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
-    #    cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
-
+    
     # show the frame to our screen
-    cv2.rectangle(frame, (200,250),(400,500),(0,0,255),3)
-    cv2.imshow("Frame", frame)
+    cv2.rectangle(image, (200,250),(400,500),(0,0,255),3)
+    
+
+    # show the frame
+    cv2.imshow("Frame", image)
     key = cv2.waitKey(1) & 0xFF
 
-    # if the 'q' key is pressed, stop the loop
+    # clear the stream in preparation for the next frame
+    rawCapture.truncate(0)
+
+    # if the `q` key was pressed, break from the loop
     if key == ord("q"):
-        setGPIO(0,0,0,0,.1)
         break
-
-# if we are not using a video file, stop the camera video stream
-if not args.get("video", False):
-    vs.stop()
-
-# otherwise, release the camera
-else:
-    vs.release()
-
-# close all window
-cv2.destroyAllWindows()
-
