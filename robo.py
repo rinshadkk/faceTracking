@@ -58,7 +58,8 @@ def lookAround(time):
     setGPIO(0,1,1,0,time)
 
 def processLookAround():
-    lookAroundCounter += 1
+    global lookAroundCounter
+    lookAroundCounter = lookAroundCounter + 1
     if lookAroundCounter > maxLookAroundCounter :
          time.sleep(lookAroundSleep)
     lookAround(.1)
@@ -157,8 +158,8 @@ while True:
                        (0, 255, 255), 2)
             cv2.circle(frame, center, 5, (0, 0, 255), -1)
             processMovement(x,y)
-    
-    processLookAround()
+    else:
+        processLookAround()
     # update the points queue
     #pts.appendleft(center)
     # loop over the set of tracked points
